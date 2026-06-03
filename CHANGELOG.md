@@ -6,6 +6,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-06-03
+
+### Added
+- **Configurable schedule frequency** — new `detect.frequency` config (env
+  `REBEL_AIGUARD_FREQUENCY`, default `hourly`) drives how often the scheduled
+  `rebel:detect-anomalies` command runs. Accepts a whitelisted cadence name (`everyMinute`,
+  `everyFiveMinutes`, `everyTenMinutes`, `everyThirtyMinutes`, `hourly`, `daily`, …) **or** a
+  raw 5-field cron expression (e.g. `*/15 * * * *`), applied via the scheduler's `->cron()`.
+  Only whitelisted names are ever called as methods; an unrecognised, non-cron value falls back
+  to `hourly` — never an arbitrary method call.
+- **`--from` / `--to` command options** — run detection over an explicit ISO-8601 window
+  (overrides `--lookback` when both are given; `--to` defaults to "now" when only `--from` is
+  passed). Lets you simulate a cron run over any past window or backfill. Invalid datetimes, or
+  a `--to` not after `--from`, print an error and exit non-zero.
+
+### Changed
+- The scheduled invocation now passes the configured lookback explicitly
+  (`rebel:detect-anomalies --lookback=<minutes>`) so a cron run and a manual run scan the same
+  window.
+
 ## [0.1.1] - 2026-06-03
 
 ### Added
@@ -33,6 +53,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 - `AnomalyCase` model + migration (ULID), enums, `FakeAiClient` for tests, config.
 - CI matrix (PHP 8.3/8.4/8.5 × Laravel 12/13), Pest suite, PHPStan level max, Pint.
 
-[Unreleased]: https://github.com/padosoft/laravel-rebel-ai-guard/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/padosoft/laravel-rebel-ai-guard/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/padosoft/laravel-rebel-ai-guard/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/padosoft/laravel-rebel-ai-guard/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/padosoft/laravel-rebel-ai-guard/releases/tag/v0.1.0
