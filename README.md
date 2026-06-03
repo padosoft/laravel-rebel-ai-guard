@@ -70,17 +70,20 @@ Everything that *acts* is deterministic and auditable.
 
 ## Rebel AI Guard vs the alternatives
 
-| Capability | **Rebel AI Guard** | "AI fraud" black boxes | DIY log scripts |
-|---|:---:|:---:|:---:|
-| Deterministic, testable rules | ✅ | ❌ | ➖ |
-| AI **explains**, never decides | ✅ | ❌ | n/a |
-| Prompt sanitization (no PII/secret leak to LLM) | ✅ | ❌ | n/a |
-| Prompt-injection-resistant system prompt | ✅ | ➖ | n/a |
-| Works with NO AI configured | ✅ | ❌ | ✅ |
-| Idempotent, de-duplicated cases | ✅ | ➖ | ❌ |
-| Tenant-aware + audit-native | ✅ | ❌ | ❌ |
+| Capability | **Rebel AI Guard** | Shopify | "AI fraud" black boxes | DIY log scripts |
+|---|:---:|:---:|:---:|:---:|
+| Deterministic, testable rules you own | ✅ | ❌ | ❌ | ➖ |
+| AI **explains**, never decides | ✅ | ❌ | ❌ | n/a |
+| Prompt sanitization (no PII/secret leak to LLM) | ✅ | ❌ | ❌ | n/a |
+| Prompt-injection-resistant system prompt | ✅ | ❌ | ➖ | n/a |
+| Works with NO AI configured | ✅ | ➖ | ❌ | ✅ |
+| Idempotent, de-duplicated cases | ✅ | ➖ | ➖ | ❌ |
+| Self-hosted over your own audit log | ✅ | ❌ | ❌ | ✅ |
+| Tenant-aware + audit-native (your app) | ✅ | ❌ | ❌ | ❌ |
 
-> Legend: ✅ built-in · ➖ partial · ❌ not available.
+> Legend: ✅ built-in · ➖ partial / hosted-only / not exposed to you · ❌ not available.
+>
+> Note: Shopify is a hosted, closed commerce platform — it runs its own opaque fraud scoring on its checkout, but never gives you a deterministic anomaly engine, a sanitized explain-not-decide AI, or rules you can read, test, and self-host over your own audit log.
 
 ---
 
