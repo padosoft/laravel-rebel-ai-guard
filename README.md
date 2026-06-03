@@ -99,7 +99,19 @@ php artisan migrate
 
 ## Usage
 
-**Run detection** (schedule it, e.g. every few minutes):
+**Detection runs automatically.** Out of the box the package schedules the
+`rebel:detect-anomalies` command **hourly**, so anomaly cases appear in your admin panel on
+their own — you don't have to call the detector. Just make sure Laravel's scheduler is running
+(`* * * * * php artisan schedule:run` in cron, as usual).
+
+You can also run it by hand at any time:
+
+```bash
+php artisan rebel:detect-anomalies              # scans the last 1440 min (config default)
+php artisan rebel:detect-anomalies --lookback=60 # scan only the last hour
+```
+
+**Or call the detector directly** (e.g. from your own job):
 
 ```php
 use Padosoft\Rebel\AiGuard\Detection\AnomalyDetector;
@@ -109,6 +121,15 @@ $opened = app(AnomalyDetector::class)->detect(
     now(),
 ); // returns how many cases were opened/updated
 ```
+
+### Scheduling
+
+| Config key | Env | Default | Effect |
+|---|---|---|---|
+| `detect.schedule` | `REBEL_AIGUARD_SCHEDULE` | `true` | Auto-register the hourly schedule. Set `false` to opt out and wire your own. |
+| `detect.lookback_minutes` | `REBEL_AIGUARD_LOOKBACK` | `1440` | Default scan window (minutes, ending "now"). `--lookback` overrides per run. |
+
+The schedule is only registered in console context, so it never affects HTTP requests.
 
 **Explain a case** (optional AI):
 
@@ -149,6 +170,8 @@ $this->app->singleton(AiClient::class, MyOpenAiClient::class);
 
 ```dotenv
 REBEL_AIGUARD_OTP_BOMBING_THRESHOLD=10
+REBEL_AIGUARD_SCHEDULE=true
+REBEL_AIGUARD_LOOKBACK=1440
 ```
 
 ---
