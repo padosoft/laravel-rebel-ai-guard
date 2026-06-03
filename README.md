@@ -101,14 +101,17 @@ php artisan migrate
 
 **Detection runs automatically.** Out of the box the package schedules the
 `rebel:detect-anomalies` command **hourly**, so anomaly cases appear in your admin panel on
-their own — you don't have to call the detector. Just make sure Laravel's scheduler is running
+their own — you don't have to call the detector. The cadence is fully configurable (see
+[Scheduling](#scheduling)). Just make sure Laravel's scheduler is running
 (`* * * * * php artisan schedule:run` in cron, as usual).
 
 You can also run it by hand at any time:
 
 ```bash
-php artisan rebel:detect-anomalies              # scans the last 1440 min (config default)
+php artisan rebel:detect-anomalies               # scans the last 1440 min (config default)
 php artisan rebel:detect-anomalies --lookback=60 # scan only the last hour
+php artisan rebel:detect-anomalies \
+  --from="2026-06-01T00:00:00" --to="2026-06-01T06:00:00" # explicit window
 ```
 
 **Or call the detector directly** (e.g. from your own job):
@@ -126,10 +129,48 @@ $opened = app(AnomalyDetector::class)->detect(
 
 | Config key | Env | Default | Effect |
 |---|---|---|---|
-| `detect.schedule` | `REBEL_AIGUARD_SCHEDULE` | `true` | Auto-register the hourly schedule. Set `false` to opt out and wire your own. |
-| `detect.lookback_minutes` | `REBEL_AIGUARD_LOOKBACK` | `1440` | Default scan window (minutes, ending "now"). `--lookback` overrides per run. |
+| `detect.schedule` | `REBEL_AIGUARD_SCHEDULE` | `true` | Auto-register the schedule. Set `false` to opt out and wire your own. |
+| `detect.frequency` | `REBEL_AIGUARD_FREQUENCY` | `hourly` | How often the scheduled command runs. A whitelisted cadence name **or** a raw cron expression. |
+| `detect.lookback_minutes` | `REBEL_AIGUARD_LOOKBACK` | `1440` | Default scan window (minutes, ending "now"). The scheduled run passes this explicitly; `--lookback`/`--from`/`--to` override per manual run. |
 
 The schedule is only registered in console context, so it never affects HTTP requests.
+
+**Frequency** accepts either a whitelisted cadence name or a raw 5-field cron expression:
+
+- Cadence names: `everyMinute`, `everyTwoMinutes`, `everyThreeMinutes`, `everyFourMinutes`,
+  `everyFiveMinutes`, `everyTenMinutes`, `everyFifteenMinutes`, `everyThirtyMinutes`, `hourly`,
+  `daily`, `weekly`, `monthly`, `quarterly`, `yearly` (case-insensitive).
+- Cron expression: anything that looks like `*/15 * * * *` is applied via the scheduler's
+  `->cron()`. Only whitelisted names are ever called as methods — an unrecognised value that is
+  not a valid cron expression falls back to `hourly` (it never calls an arbitrary method).
+
+```dotenv
+REBEL_AIGUARD_FREQUENCY=everyFifteenMinutes   # cadence name
+# REBEL_AIGUARD_FREQUENCY="*/15 9-17 * * 1-5" # or a raw cron (every 15 min, 9-17, Mon-Fri)
+```
+
+#### Running over an explicit window (`--from` / `--to`) and simulating cron
+
+`--lookback=<minutes>` scans a window ending "now". For a precise window, pass ISO-8601
+`--from` and `--to` (when both are given they override `--lookback`; if you pass only `--from`,
+`--to` defaults to "now"). Invalid datetimes — or a `--to` that is not after `--from` — print an
+error and exit non-zero.
+
+```bash
+# Simulate the hourly cron run for a specific past hour:
+php artisan rebel:detect-anomalies \
+  --from="2026-06-01T09:00:00" --to="2026-06-01T10:00:00"
+
+# Backfill a whole day in one shot:
+php artisan rebel:detect-anomalies \
+  --from="2026-06-01T00:00:00" --to="2026-06-02T00:00:00"
+
+# From a point in time until "now":
+php artisan rebel:detect-anomalies --from="2026-06-01T00:00:00"
+```
+
+Because the scheduled invocation simply runs `rebel:detect-anomalies --lookback=<configured>`,
+a manual run with the same window behaves identically to the cron run.
 
 **Explain a case** (optional AI):
 
@@ -171,6 +212,7 @@ $this->app->singleton(AiClient::class, MyOpenAiClient::class);
 ```dotenv
 REBEL_AIGUARD_OTP_BOMBING_THRESHOLD=10
 REBEL_AIGUARD_SCHEDULE=true
+REBEL_AIGUARD_FREQUENCY=hourly
 REBEL_AIGUARD_LOOKBACK=1440
 ```
 

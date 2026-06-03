@@ -49,6 +49,73 @@ it('honours the --lookback option', function (): void {
     expect(AnomalyCase::query()->count())->toBe(1);
 });
 
+it('runs detection over an explicit --from/--to window', function (): void {
+    $clock = new FakeClock(new DateTimeImmutable('2026-01-01 12:00:00'));
+    app()->instance(ClockInterface::class, $clock);
+    config()->set('rebel-ai-guard.otp_bombing.threshold', 5);
+
+    // Record the failures "at" 09:30 by setting the clock there before recording.
+    $clock->set(new DateTimeImmutable('2026-01-01 09:30:00'));
+    for ($i = 0; $i < 6; $i++) {
+        recordOtpFailure('hmac-victim');
+    }
+
+    // The lookback default (now-1440m) would also catch these, so use a tight window that ONLY
+    // works because --from/--to override the lookback.
+    $clock->set(new DateTimeImmutable('2026-01-01 12:00:00'));
+
+    $this->artisan('rebel:detect-anomalies', [
+        '--from' => '2026-01-01T09:00:00',
+        '--to' => '2026-01-01T10:00:00',
+    ])
+        ->expectsOutputToContain('[2026-01-01T09:00:00')
+        ->assertOk();
+
+    expect(AnomalyCase::query()->count())->toBe(1);
+});
+
+it('excludes events outside the explicit --from/--to window', function (): void {
+    $clock = new FakeClock(new DateTimeImmutable('2026-01-01 09:30:00'));
+    app()->instance(ClockInterface::class, $clock);
+    config()->set('rebel-ai-guard.otp_bombing.threshold', 5);
+
+    for ($i = 0; $i < 6; $i++) {
+        recordOtpFailure('hmac-victim'); // recorded at 09:30, before the window below
+    }
+
+    $clock->set(new DateTimeImmutable('2026-01-01 12:00:00'));
+
+    $this->artisan('rebel:detect-anomalies', [
+        '--from' => '2026-01-01T10:00:00',
+        '--to' => '2026-01-01T11:00:00',
+    ])
+        ->expectsOutputToContain('0 case(s)')
+        ->assertOk();
+
+    expect(AnomalyCase::query()->count())->toBe(0);
+});
+
+it('returns non-zero on an invalid --from datetime', function (): void {
+    app()->instance(ClockInterface::class, new FakeClock(new DateTimeImmutable('2026-01-01 10:00:00')));
+
+    $this->artisan('rebel:detect-anomalies', ['--from' => 'not-a-date'])
+        ->expectsOutputToContain('not a valid datetime')
+        ->assertExitCode(1);
+
+    expect(AnomalyCase::query()->count())->toBe(0);
+});
+
+it('returns non-zero when --to is not after --from', function (): void {
+    app()->instance(ClockInterface::class, new FakeClock(new DateTimeImmutable('2026-01-01 10:00:00')));
+
+    $this->artisan('rebel:detect-anomalies', [
+        '--from' => '2026-01-01T10:00:00',
+        '--to' => '2026-01-01T09:00:00',
+    ])
+        ->expectsOutputToContain('must be after --from')
+        ->assertExitCode(1);
+});
+
 it('reports zero cases when nothing crosses the threshold', function (): void {
     app()->instance(ClockInterface::class, new FakeClock(new DateTimeImmutable('2026-01-01 10:00:00')));
     config()->set('rebel-ai-guard.otp_bombing.threshold', 5);

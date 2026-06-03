@@ -10,6 +10,7 @@ use Padosoft\Rebel\AiGuard\Console\DetectAnomaliesCommand;
 use Padosoft\Rebel\AiGuard\Contracts\AiClient;
 use Padosoft\Rebel\AiGuard\Detection\AnomalyDetector;
 use Padosoft\Rebel\AiGuard\Support\PromptSanitizer;
+use Padosoft\Rebel\AiGuard\Support\ScheduleFrequency;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -30,9 +31,9 @@ final class RebelAiGuardServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
-        // Auto-run detection so cases appear on their own: schedule the command hourly. Only
-        // wire this in console (where the scheduler runs) and when the app opted in, so it
-        // never errors in HTTP/test contexts.
+        // Auto-run detection so cases appear on their own: schedule the command on the
+        // configured cadence. Only wire this in console (where the scheduler runs) and when the
+        // app opted in, so it never errors in HTTP/test contexts.
         if (! $this->app->runningInConsole()) {
             return;
         }
@@ -42,13 +43,24 @@ final class RebelAiGuardServiceProvider extends PackageServiceProvider
             return;
         }
 
-        $this->app->booted(function (): void {
+        $frequency = $config->get('rebel-ai-guard.detect.frequency', ScheduleFrequency::DEFAULT_FREQUENCY);
+        $frequency = is_string($frequency) && $frequency !== '' ? $frequency : ScheduleFrequency::DEFAULT_FREQUENCY;
+
+        $lookback = $config->get('rebel-ai-guard.detect.lookback_minutes', 1440);
+        $lookback = is_int($lookback) ? max(1, $lookback) : 1440;
+
+        $this->app->booted(function () use ($frequency, $lookback): void {
             if (! $this->app->bound(Schedule::class)) {
                 return;
             }
 
             $schedule = $this->app->make(Schedule::class);
-            $schedule->command('rebel:detect-anomalies')->hourly();
+
+            // Pass the configured lookback explicitly so a scheduled (cron) run and a manual run
+            // scan exactly the same window.
+            $event = $schedule->command('rebel:detect-anomalies --lookback='.$lookback);
+
+            ScheduleFrequency::apply($event, $frequency);
         });
     }
 
