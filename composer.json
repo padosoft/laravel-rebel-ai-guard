@@ -1,6 +1,6 @@
 {
   "name": "padosoft/laravel-rebel-ai-guard",
-  "description": "Anomaly detection + AI security copilot per Laravel Rebel (spiega/suggerisce; le regole deterministiche decidono).",
+  "description": "Anomaly detection + AI security copilot for Laravel Rebel: deterministic rules detect anomaly cases; the optional AI only explains/suggests (sanitized prompts, no PII/OTP, human review). Part of padosoft/laravel-rebel-*.",
   "license": "MIT",
   "keywords": [
     "laravel",
@@ -51,7 +51,12 @@
   "scripts": {
     "test": "pest",
     "phpstan": "phpstan analyse --memory-limit=512M",
-    "pint": "pint"
+    "pint": "pint",
+    "check": [
+      "pint --test",
+      "@phpstan",
+      "@test"
+    ]
   },
   "config": {
     "sort-packages": true,
