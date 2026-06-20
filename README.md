@@ -1,5 +1,8 @@
 # Laravel Rebel — AI Guard
 
+> Official documentation: https://doc.laravel-rebel.padosoft.com
+
+
 > **Deterministic anomaly detection, with an AI that explains — never decides.** Fixed rules open anomaly cases (e.g. OTP bombing) from your audit log; an optional LLM can then describe a case in plain language. The AI only ever sees **sanitized** prompts (no PII, no OTPs, no tokens) and its output is advisory — humans review, destructive actions stay manual. Part of the `padosoft/laravel-rebel-*` suite.
 
 <p align="center">
@@ -245,3 +248,4 @@ composer pint      # code style
 ```
 
 **License:** MIT — see [LICENSE](LICENSE). Part of the [`padosoft/laravel-rebel`](https://github.com/padosoft) suite.
+
