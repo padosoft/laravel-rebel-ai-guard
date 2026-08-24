@@ -6,6 +6,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-08-24
+
+### Added
+- **Delegated-access anomaly rules** (laravel-iam-agents): the detector now also scans the
+  IAM server's `iam_audit_events` table (stream `delegation`) **when it exists in the same
+  database** — absent table = rules silently skipped, rebel-only installs untouched.
+  - `delegation_exchange_burst`: one agent performing too many RFC 8693 token exchanges
+    (issued or refused) in the scan window — abnormal token velocity
+    (`delegation.exchange_burst.threshold`, default 120).
+  - `delegation_scope_probing`: one agent collecting refused exchanges — it keeps asking for
+    authority it does not have; the refusal-reason breakdown lands in the case signals
+    (`delegation.scope_probing.threshold`, default 10).
+  - Delegation dedupe keys are **day-bucketed**: a re-offending agent opens a NEW case the
+    next day instead of silently refreshing one already triaged.
+- **Auto-suspend (opt-in, advisory by default)**: with `delegation.auto_suspend=true`, a
+  High/Critical delegation case also suspends the agent through the `AgentLifecycle` port of
+  `padosoft/laravel-iam-contracts` (^1.4, dev/suggest) when the host has it bound — actor
+  `rebel-ai-guard`, reason = the anomaly type, `auto_suspended` flag in the case signals. A
+  suspension failure never breaks detection: the case still opens.
+- `release` workflow (workflow_dispatch tag + GitHub release, ecosystem pattern).
+
 ## [0.1.2] - 2026-06-03
 
 ### Added
@@ -53,7 +74,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 - `AnomalyCase` model + migration (ULID), enums, `FakeAiClient` for tests, config.
 - CI matrix (PHP 8.3/8.4/8.5 × Laravel 12/13), Pest suite, PHPStan level max, Pint.
 
-[Unreleased]: https://github.com/padosoft/laravel-rebel-ai-guard/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/padosoft/laravel-rebel-ai-guard/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/padosoft/laravel-rebel-ai-guard/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/padosoft/laravel-rebel-ai-guard/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/padosoft/laravel-rebel-ai-guard/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/padosoft/laravel-rebel-ai-guard/releases/tag/v0.1.0
