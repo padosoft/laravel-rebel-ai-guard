@@ -9,4 +9,6 @@ enum AnomalyType: string
     case OtpBombing = 'otp_bombing';
     case SmsPumping = 'sms_pumping';
     case CredentialStuffing = 'credential_stuffing';
+    case DelegationExchangeBurst = 'delegation_exchange_burst';
+    case DelegationScopeProbing = 'delegation_scope_probing';
 }

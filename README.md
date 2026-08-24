@@ -128,6 +128,28 @@ $opened = app(AnomalyDetector::class)->detect(
 ); // returns how many cases were opened/updated
 ```
 
+### Delegated-access anomalies (laravel-iam-agents)
+
+When your database also hosts a [laravel-iam-server](https://github.com/padosoft/laravel-iam-server)
+with the [laravel-iam-agents](https://github.com/padosoft/laravel-iam-agents) module, two extra
+rules scan the delegation audit stream (`iam_audit_events`) in the same runs — no extra wiring,
+and rebel-only installs are untouched (absent table = rules skipped):
+
+- **`delegation_exchange_burst`** — one agent performing too many RFC 8693 token exchanges in
+  the window: a runaway loop, a stolen agent key, or a rogue orchestrator all look like this
+  first (`REBEL_AIGUARD_DGR_BURST_THRESHOLD`, default 120).
+- **`delegation_scope_probing`** — one agent collecting **refused** exchanges: it keeps asking
+  for authority it does not have. The refusal-reason breakdown (missing grant, empty scope
+  intersection, revoked-grant retries…) lands in the case signals
+  (`REBEL_AIGUARD_DGR_PROBING_THRESHOLD`, default 10).
+
+**Auto-suspend — opt-in, advisory by default.** The golden rule holds: cases open, humans
+triage. If you explicitly set `REBEL_AIGUARD_DGR_AUTO_SUSPEND=true` **and** the app binds the
+`AgentLifecycle` port from `padosoft/laravel-iam-contracts` (iam-agents does), a High/Critical
+delegation case also pulls the brake — the agent is suspended (actor `rebel-ai-guard`), every
+lifecycle transition audited by IAM itself, `auto_suspended` flagged in the case signals. A
+suspension failure never breaks detection, and suspension is reversible from the IAM console.
+
 ### Scheduling
 
 | Config key | Env | Default | Effect |
