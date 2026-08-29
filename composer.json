@@ -29,6 +29,7 @@
     "laravel/pint": "^1.18",
     "orchestra/testbench": "^10.0|^11.0",
     "padosoft/laravel-iam-contracts": "^1.4",
+    "padosoft/laravel-routines-contracts": "^1.1",
     "pestphp/pest": "^4.0",
     "pestphp/pest-plugin-laravel": "^4.0"
   },
@@ -69,6 +70,7 @@
   "minimum-stability": "stable",
   "prefer-stable": true,
   "suggest": {
-    "padosoft/laravel-iam-contracts": "Enables auto-suspend of anomalous AI agents via the AgentLifecycle contract (delegation anomaly rules, ^1.4)."
+    "padosoft/laravel-iam-contracts": "Enables auto-suspend of anomalous AI agents via the AgentLifecycle contract (delegation anomaly rules, ^1.4).",
+    "padosoft/laravel-routines-contracts": "Enables auto-suspend of anomalous scheduled routines via the RoutineLifecycle contract (routine anomaly rules, ^1.1)."
   }
 }

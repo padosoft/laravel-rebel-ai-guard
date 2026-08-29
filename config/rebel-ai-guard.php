@@ -42,6 +42,40 @@ return [
         'auto_suspend' => (bool) env('REBEL_AIGUARD_DGR_AUTO_SUSPEND', false),
     ],
 
+    // Scheduled-routine anomalies (laravel-routines): the rules read the `routine_runs` ledger
+    // when it exists in the same database — absent table = rules silently skipped. Where the
+    // delegation rules watch an agent ASKING for authority, these watch an automation running
+    // with nobody looking, which fails in ways that produce no error anywhere:
+    // - fire_burst: >= threshold fires for one routine in the window (a runaway event emitter, or
+    //   replayed webhook deliveries that each carry a distinct delivery id).
+    // - failure_loop: >= threshold FAILED runs. The engine retries within one occurrence and then
+    //   gives up; nothing looks ACROSS occurrences, so a routine failing hourly for a week is
+    //   silent.
+    // - mandate_probing: >= threshold PAUSED runs — the granted consent no longer describes what
+    //   the routine actually does, and needs renegotiating rather than approving daily.
+    // - approval_starvation: paused runs UNANSWERED for longer than `hours`. Not a window rule but
+    //   a state observed at scan end: what matters is how long the question has been waiting. It
+    //   opens from the first one; `threshold` only grades the severity.
+    // `auto_suspend` (default false = advisory-only): when true, a High/Critical case also
+    // suspends the routine through the routines-contracts RoutineLifecycle port, when bound.
+    // Suspending never blocks answering the questions already pending — those live on the run.
+    'routines' => [
+        'fire_burst' => [
+            'threshold' => (int) env('REBEL_AIGUARD_ROUTINE_BURST_THRESHOLD', 200),
+        ],
+        'failure_loop' => [
+            'threshold' => (int) env('REBEL_AIGUARD_ROUTINE_FAILURE_THRESHOLD', 10),
+        ],
+        'mandate_probing' => [
+            'threshold' => (int) env('REBEL_AIGUARD_ROUTINE_PROBING_THRESHOLD', 5),
+        ],
+        'approval_starvation' => [
+            'hours' => (int) env('REBEL_AIGUARD_ROUTINE_STARVATION_HOURS', 24),
+            'threshold' => (int) env('REBEL_AIGUARD_ROUTINE_STARVATION_THRESHOLD', 3),
+        ],
+        'auto_suspend' => (bool) env('REBEL_AIGUARD_ROUTINE_AUTO_SUSPEND', false),
+    ],
+
     'detect' => [
         'schedule' => (bool) env('REBEL_AIGUARD_SCHEDULE', true),
         'frequency' => (string) env('REBEL_AIGUARD_FREQUENCY', 'hourly'),
