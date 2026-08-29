@@ -6,6 +6,34 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ## [Unreleased]
 
+### Added
+- **Scheduled-routine anomaly rules** ([laravel-routines](https://github.com/padosoft/laravel-routines)):
+  the detector now also scans the `routine_runs` ledger **when it exists in the same database** —
+  absent tables = rules silently skipped. Where the delegation rules watch an agent *asking for
+  authority*, these watch an automation *running with nobody looking*, which fails in ways that
+  produce no error anywhere.
+  - `routine_fire_burst`: one routine firing far above its schedule — a runaway event emitter, or
+    replayed webhook deliveries that each carry a distinct delivery id
+    (`routines.fire_burst.threshold`, default 200).
+  - `routine_failure_loop`: repeated FAILED runs. The engine retries within one occurrence and then
+    gives up; nothing looks across occurrences (`routines.failure_loop.threshold`, default 10).
+  - `routine_mandate_probing`: repeated PAUSED runs, broken down by action class — the granted
+    consent no longer describes what the routine does (`routines.mandate_probing.threshold`,
+    default 5).
+  - `routine_approval_starvation`: paused runs UNANSWERED beyond `routines.approval_starvation.hours`
+    (default 24). The worst failure in the system and invisible by construction — the routine is
+    behaving as designed, so it raises no error. The case names the oldest unanswered question.
+- **Opt-in auto-suspend for routines** through the `RoutineLifecycle` port of
+  `padosoft/laravel-routines-contracts` (^1.2), mirroring the delegation one: off by default
+  (`routines.auto_suspend`), High/Critical only, and a suspension failure never breaks detection.
+  Suspending a routine does not block answering the questions already pending — those live on the
+  run.
+
+### Changed
+- Case writing extracted to `Detection\CaseWriter` and shared by both streams: dedupe and
+  in-place refresh must behave identically wherever a rule lives, and duplicating that logic is the
+  most natural way to end up with two slightly different semantics six months later.
+
 ## [0.1.3] - 2026-08-24
 
 ### Added

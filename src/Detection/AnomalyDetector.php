@@ -4,18 +4,13 @@ declare(strict_types=1);
 
 namespace Padosoft\Rebel\AiGuard\Detection;
 
-use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\DatabaseManager;
-use Illuminate\Database\Eloquent\Builder;
 use Padosoft\Iam\Contracts\Delegation\AgentLifecycle;
 use Padosoft\Iam\Contracts\Support\SubjectRef;
 use Padosoft\Rebel\AiGuard\Enums\AnomalyType;
-use Padosoft\Rebel\AiGuard\Enums\CaseStatus;
 use Padosoft\Rebel\AiGuard\Enums\Severity;
-use Padosoft\Rebel\AiGuard\Models\AnomalyCase;
-use Psr\Clock\ClockInterface;
 
 /**
  * DETERMINISTIC anomaly detection: it scans the audit log and opens anomaly cases from
@@ -26,8 +21,9 @@ final class AnomalyDetector
 {
     public function __construct(
         private readonly DatabaseManager $db,
-        private readonly ClockInterface $clock,
         private readonly Repository $config,
+        private readonly CaseWriter $cases,
+        private readonly RoutineRules $routines,
     ) {}
 
     /** Run all rules over events in [$from, $to). Returns how many cases were opened/updated. */
@@ -44,7 +40,9 @@ final class AnomalyDetector
         )
             // Delegated-access anomalies (laravel-iam-agents audit stream, when present).
             + $this->detectDelegationExchangeBurst($from, $to)
-            + $this->detectDelegationScopeProbing($from, $to);
+            + $this->detectDelegationScopeProbing($from, $to)
+            // Scheduled-routine anomalies (laravel-routines ledger, when present).
+            + $this->routines->detect($from, $to);
     }
 
     /**
@@ -142,7 +140,7 @@ final class AnomalyDetector
                 continue;
             }
 
-            $severity = $this->severityFor($entry['n'], $threshold);
+            $severity = $this->cases->severityFor($entry['n'], $threshold);
             $signals = array_filter([
                 'agent_id' => $entry['agent'],
                 'events' => $entry['n'],
@@ -153,7 +151,7 @@ final class AnomalyDetector
                 $signals['auto_suspended'] = true;
             }
 
-            $this->openCase(
+            $this->cases->open(
                 $entry['tenant'],
                 $type,
                 $severity,
@@ -247,10 +245,10 @@ final class AnomalyDetector
         $opened = 0;
         foreach ($counts as $entry) {
             if ($entry['n'] >= $threshold) {
-                $this->openCase(
+                $this->cases->open(
                     $entry['tenant'],
                     $type,
-                    $this->severityFor($entry['n'], $threshold),
+                    $this->cases->severityFor($entry['n'], $threshold),
                     ['identifier_hmac' => $entry['hmac'], 'failures' => $entry['n']],
                     $entry['n'],
                     $dedupePrefix.':'.$entry['hmac'],
@@ -260,54 +258,6 @@ final class AnomalyDetector
         }
 
         return $opened;
-    }
-
-    /**
-     * @param  array<string, mixed>  $signals
-     */
-    private function openCase(?string $tenant, AnomalyType $type, Severity $severity, array $signals, int $count, string $dedupe): void
-    {
-        $existing = AnomalyCase::query()
-            ->withoutGlobalScopes()
-            ->where('dedupe_key', $dedupe)
-            ->when(
-                $tenant === null,
-                fn (Builder $query) => $query->whereNull('tenant_id'),
-                fn (Builder $query) => $query->where('tenant_id', $tenant),
-            )
-            ->first();
-
-        if ($existing !== null) {
-            // Refresh the open case in place (don't reopen a closed/acknowledged one).
-            $existing->severity = $severity;
-            $existing->events_count = $count;
-            $existing->signals = $signals;
-            $existing->save();
-
-            return;
-        }
-
-        $case = new AnomalyCase;
-        $case->fill([
-            'tenant_id' => $tenant,
-            'type' => $type,
-            'severity' => $severity,
-            'status' => CaseStatus::Open,
-            'dedupe_key' => $dedupe,
-            'signals' => $signals,
-            'events_count' => $count,
-            'opened_at' => CarbonImmutable::instance($this->clock->now()),
-        ]);
-        $case->save();
-    }
-
-    private function severityFor(int $count, int $threshold): Severity
-    {
-        return match (true) {
-            $count >= $threshold * 3 => Severity::Critical,
-            $count >= $threshold * 2 => Severity::High,
-            default => Severity::Medium,
-        };
     }
 
     private function intConfig(string $key, int $default): int

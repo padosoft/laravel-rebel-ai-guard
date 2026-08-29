@@ -150,6 +150,41 @@ delegation case also pulls the brake — the agent is suspended (actor `rebel-ai
 lifecycle transition audited by IAM itself, `auto_suspended` flagged in the case signals. A
 suspension failure never breaks detection, and suspension is reversible from the IAM console.
 
+### Scheduled-routine anomalies (laravel-routines)
+
+When your database also hosts [laravel-routines](https://github.com/padosoft/laravel-routines),
+four more rules scan the routine ledger (`routine_runs`) in the same runs — again no extra
+wiring, and an install without those tables is untouched.
+
+Where the delegation rules watch an agent **asking for authority**, these watch an automation
+**running with nobody looking** — and that fails in ways which produce no error anywhere:
+
+- **`routine_fire_burst`** — one routine firing far more than it should
+  (`REBEL_AIGUARD_ROUTINE_BURST_THRESHOLD`, default 200). A cron routine cannot outrun its own
+  schedule, but an event- or webhook-triggered one can: a runaway emitter, or replayed
+  deliveries that each carry a distinct delivery id — which idempotency, correctly, treats as
+  distinct facts.
+- **`routine_failure_loop`** — repeated **failed** runs
+  (`REBEL_AIGUARD_ROUTINE_FAILURE_THRESHOLD`, default 10). The engine retries with backoff
+  *within* one occurrence and then gives up; the next occurrence starts over. Nothing looks
+  **across** occurrences, so a routine failing hourly for a week tells nobody.
+- **`routine_mandate_probing`** — repeated **paused** runs
+  (`REBEL_AIGUARD_ROUTINE_PROBING_THRESHOLD`, default 5), broken down by action class. Even when
+  every pause gets approved, a steady stream of them means the granted consent no longer
+  describes what the routine actually does, and needs renegotiating rather than approving daily.
+- **`routine_approval_starvation`** — paused runs **nobody answered**, older than
+  `REBEL_AIGUARD_ROUTINE_STARVATION_HOURS` (default 24). This is the worst failure in the
+  system and it is invisible by construction: the routine is behaving exactly as designed — it
+  does not act without permission — so it raises no error at all. The case names the oldest
+  unanswered question so a human can answer from there; `..._STARVATION_THRESHOLD` (default 3)
+  only grades severity, the case opens from the first one.
+
+**Auto-suspend** works exactly as for delegation, through the `RoutineLifecycle` port from
+`padosoft/laravel-routines-contracts`: off by default, opt in with
+`REBEL_AIGUARD_ROUTINE_AUTO_SUSPEND=true`, acts only on High/Critical, and a suspension failure
+never breaks detection. Suspending a routine never blocks answering the questions already
+pending — those live on the run, not on the routine.
+
 ### Scheduling
 
 | Config key | Env | Default | Effect |
